@@ -230,7 +230,7 @@ function Footer() {
               </Link>
             </div>
             <p className="text-[#1A1A1A] text-xs sm:text-sm order-3 flex items-center gap-1">
-              Made with <span className="text-red-500 animate-pulse">❤️</span> in India
+              powered by <span className="text-red-500 animate-pulse">❤️</span> stackenzo
             </p>
           </div>
         </div>

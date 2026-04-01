@@ -436,14 +436,14 @@ function SectionNavDots() {
     className="w-2.5 h-2.5 rounded-full"
   />
 
-  {/* 🔥 PULSE */}
+  {/* 🔥 RING */}
   {active === i && (
     <motion.div
-      layoutId="nav-pulse"
+      layoutId="pf-nav-pulse"
       className="absolute inset-0 rounded-full"
       style={{ border: "1.5px solid #D4AF37" }}
-      animate={{ scale: [2, 2.8, 2], opacity: [0.5, 0, 0.5] }}
-      transition={{ duration: 1.8, repeat: Infinity }}
+      animate={{ scale: [1.5, 2.2, 1.5], opacity: [0.6, 0, 0.6] }}
+      transition={{ duration: 1.5, repeat: Infinity }}
     />
   )}
 
@@ -1430,12 +1430,13 @@ function CTASection() {
    TRAVELING ICON BUBBLES  — section-aware + disappear/reappear
 ════════════════════════════════════════════════════════════ */
 
+// ─── FIXES ───────────────────────────────────────────────────────────────────
+// 1. Hero section (idx=0) → no icons, bubbles hidden
+// 2. Scroll direction aware section detection — threshold shifts so upward
+//    scroll snaps to the section actually visible, not the one below
+
 const SECTION_ICON_CONFIG = {
-  hero: [
-    { Icon:Users,    bg:"#E66B26", iconKey:"stat-users",   size:44, iconSize:20, radius:"12px" },
-    { Icon:Package,  bg:"#E66B26", iconKey:"stat-package", size:40, iconSize:18, radius:"12px" },
-    { Icon:Globe,    bg:"#E66B26", iconKey:"stat-globe",   size:36, iconSize:16, radius:"12px" },
-  ],
+  // hero intentionally omitted → no icons on hero
   services: [
     { Icon:CpuIcon,    bg:"#4CAF50", iconKey:"svc-cpu",   size:44, iconSize:20, radius:"12px" },
     { Icon:Code2,      bg:"#2196F3", iconKey:"svc-code",  size:40, iconSize:18, radius:"12px" },
@@ -1459,141 +1460,144 @@ const SECTION_ICON_CONFIG = {
   about: [
     { Icon:Target, bg:"#E66B26", iconKey:"about-target", size:44, iconSize:20, radius:"12px" },
     { Icon:Eye,    bg:"#E66B26", iconKey:"about-eye",    size:40, iconSize:18, radius:"12px" },
-    { Icon:Target, bg:"#E66B26", iconKey:null,           size:36, iconSize:16, radius:"12px" }, // no 3rd icon → hide
+    { Icon:Target, bg:"#E66B26", iconKey:null,           size:36, iconSize:16, radius:"12px" },
   ],
-  // testimonials: no config — bubbles disappear here
+  // testimonials omitted → past last section, all hidden
 };
 
-const SECTION_CONFIG_MAP = ["hero","services","stats","programs","whyus","about","testimonials"];
-const TESTIMONIALS_IDX   = 6;   // index in SECTION_CONFIG_MAP that triggers disappear
+// Map index → config key. null = no icons for that section
+const SECTION_CONFIG_MAP = [
+  null,           // 0: hero      → no icons
+  "services",     // 1
+  "stats",        // 2
+  "programs",     // 3
+  "whyus",        // 4
+  "about",        // 5
+  null,           // 6: testimonials → no icons (last section)
+];
 
-const TBI_FLY_SPEED  = 0.25;   // faster travel
-const TBI_HOLD_MS    = 900;
-const TBI_STAGGER_MS = 500;
+const LAST_SECTION_IDX = SECTION_CONFIG_MAP.length - 1;
+const TBI_HOLD_MS      = 900;
+const TBI_STAGGER_MS   = 500;
 
 function TravelingIconBubbles() {
-  const [bubbleIcons, setBubbleIcons] = useState(SECTION_ICON_CONFIG.hero);
-  const [positions,   setPositions]   = useState([
-    { x:-300, y:-300, scale:1, opacity:1 },
-    { x:-300, y:-300, scale:1, opacity:1 },
-    { x:-300, y:-300, scale:1, opacity:1 },
-  ]);
-  const [ready, setReady] = useState(false);
+  const [sectionKey, setSectionKey] = useState(null);   // null = hidden
+  const [visible,    setVisible]    = useState(false);
 
-  /* ── refs (all RAF-safe) ── */
-  const curRef        = useRef([{x:-300,y:-300},{x:-300,y:-300},{x:-300,y:-300}]);
-  const tgtRef        = useRef([{x:-300,y:-300},{x:-300,y:-300},{x:-300,y:-300}]);
-  const mergedRef     = useRef([false,false,false]);
-  const scaleRef      = useRef([1,1,1]);
-  const opacityRef    = useRef([1,1,1]);      // 0 = disappeared, 1 = visible
-  const iconsRef      = useRef(SECTION_ICON_CONFIG.hero);
-  const sectionRef    = useRef(0);
-  const takenEls      = useRef(new Set());
-  const pausedRef     = useRef(false);        // true while in testimonials
-  const disappearing  = useRef([false,false,false]);
-  const rafRef        = useRef(null);
+  const bubbleRefs   = useRef([null, null, null]);
+  const curRef       = useRef([{x:-400,y:-400},{x:-400,y:-400},{x:-400,y:-400}]);
+  const tgtRef       = useRef([{x:-400,y:-400},{x:-400,y:-400},{x:-400,y:-400}]);
+  const mergedRef    = useRef([false,false,false]);
+  const scaleRef     = useRef([1,1,1]);
+  const opacityRef   = useRef([0,0,0]);
+  const iconsRef     = useRef([null,null,null]);
+  const sectionRef   = useRef(-1);
+  const takenEls     = useRef(new Set());
+  const rafRef       = useRef(null);
+  const readyRef     = useRef(false);
+  const lastScrollY  = useRef(0);
+  const scrollDirRef = useRef(1); // 1=down, -1=up
 
-  /* Restore any icon whose opacity/transform we dimmed */
-  const restoreAllIcons = useCallback(() => {
-    document.querySelectorAll("[data-tbi]").forEach(el => {
-      el.style.transition = "opacity 0.35s, transform 0.35s";
-      el.style.opacity    = "";
-      el.style.transform  = "";
-    });
+  const writeBubble = useCallback((i) => {
+    const el = bubbleRefs.current[i];
+    if (!el) return;
+    const { x, y } = curRef.current[i];
+    const cfg  = iconsRef.current[i];
+    const size = cfg?.size ?? 44;
+    el.style.transform = `translate(${x - size/2}px, ${y - size/2}px) scale(${scaleRef.current[i]})`;
+    el.style.opacity   = String(opacityRef.current[i]);
   }, []);
 
-  /* Read visible icons for a key */
   const getVisibleIcons = useCallback((iconKey) => {
     if (!iconKey) return [];
     return Array.from(document.querySelectorAll(`[data-tbi="${iconKey}"]`))
       .map(el => {
         const r = el.getBoundingClientRect();
         if (r.top < -80 || r.top > window.innerHeight + 80) return null;
-        return { el, cx:r.left+r.width/2, cy:r.top+r.height/2, w:r.width, h:r.height };
+        return { el, cx: r.left + r.width/2, cy: r.top + r.height/2, w: r.width, h: r.height };
       }).filter(Boolean);
   }, []);
 
+  const restoreAllIcons = useCallback(() => {
+    document.querySelectorAll("[data-tbi]").forEach(el => {
+      el.style.transition = "opacity 0.3s, transform 0.3s";
+      el.style.opacity    = "";
+      el.style.transform  = "";
+    });
+  }, []);
 
-  /* ── Single bubble cycle: find → fly → merge → (maybe disappear) → lift → repeat ── */
+  /* ── RAF loop ── */
+  useEffect(() => {
+    const loop = (now) => {
+      rafRef.current = requestAnimationFrame(loop);
+      const t = now / 1000;
+      for (let i = 0; i < 3; i++) {
+        const c      = curRef.current[i];
+        const tg     = tgtRef.current[i];
+        const merged = mergedRef.current[i];
+        const dx     = tg.x - c.x;
+        const dy     = tg.y - c.y;
+        const dist   = Math.sqrt(dx*dx + dy*dy);
+        const spd    = merged ? 0.4 : dist > 200 ? 0.25 : dist > 80 ? 0.20 : 0.15;
+        const bobX   = merged ? 0 : Math.cos(t * (0.55 + i*0.18)) * 1.5;
+        const bobY   = merged ? 0 : Math.abs(Math.sin(t * (0.82 + i*0.22))) * 2.5;
+        curRef.current[i] = {
+          x: c.x + dx * spd + bobX * spd,
+          y: c.y + dy * spd + bobY * spd,
+        };
+        writeBubble(i);
+      }
+    };
+    rafRef.current = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [writeBubble]);
+
+  /* ── Bubble cycle ── */
   const runBubble = useCallback((bi) => {
     const go = () => {
-      if (pausedRef.current) { setTimeout(go, 400); return; }
+      if (!readyRef.current) { setTimeout(go, 300); return; }
 
       const cfg = iconsRef.current[bi];
-
-      /* No iconKey → hide this bubble */
-      if (!cfg || !cfg.iconKey) {
-        opacityRef.current[bi] = 0;
-        setTimeout(go, 800);
+      if (!cfg?.iconKey || opacityRef.current[bi] === 0) {
+        setTimeout(go, 400);
         return;
-      }
-
-      /* Restore if was hidden */
-      if (opacityRef.current[bi] === 0 && !disappearing.current[bi]) {
-        opacityRef.current[bi] = 1;
       }
 
       const icons = getVisibleIcons(cfg.iconKey);
       const avail = icons.filter(ic => !takenEls.current.has(ic.el));
-      if (!avail.length) { setTimeout(go, 400); return; }
+      if (!avail.length) { setTimeout(go, 300); return; }
 
       const target = avail[Math.floor(Math.random() * avail.length)];
       takenEls.current.add(target.el);
-      tgtRef.current[bi] = { x: target.cx, y: target.cy };
 
-      /* ── Arrive: poll every frame, snap when close ── */
       const arrive = () => {
-        if (pausedRef.current) {
+        // Abort if this bubble is now hidden (section changed)
+        if (!iconsRef.current[bi]?.iconKey || opacityRef.current[bi] === 0) {
           target.el.style.opacity   = "";
           target.el.style.transform = "";
           takenEls.current.delete(target.el);
           mergedRef.current[bi] = false;
           scaleRef.current[bi]  = 1;
-          setTimeout(go, 300);
+          setTimeout(go, 200);
           return;
         }
 
-        /* Re-read target position each frame (icons move with scroll/animation) */
-        const r    = target.el.getBoundingClientRect();
-        const tcx  = r.left + r.width  / 2;
-        const tcy  = r.top  + r.height / 2;
+        const r   = target.el.getBoundingClientRect();
+        const tcx = r.left + r.width  / 2;
+        const tcy = r.top  + r.height / 2;
         tgtRef.current[bi] = { x: tcx, y: tcy };
 
         const dist = Math.hypot(curRef.current[bi].x - tcx, curRef.current[bi].y - tcy);
+        if (dist > 5) { requestAnimationFrame(arrive); return; }
 
-        /* Snap speed increases as bubble gets closer */
-        if (dist > 4) { requestAnimationFrame(arrive); return; }
-
-        /* ── INSTANT SNAP to icon center ── */
-        curRef.current[bi] = { x: tcx, y: tcy };
-
-        /* ── MERGE ── */
+        curRef.current[bi]    = { x: tcx, y: tcy };
         mergedRef.current[bi] = true;
         scaleRef.current[bi]  = Math.max(r.width, r.height) / cfg.size * 1.06;
+
         target.el.style.transition = "opacity 0.15s ease, transform 0.15s ease";
         target.el.style.opacity    = "0.06";
         target.el.style.transform  = "scale(0.85)";
 
-        /* ── Testimonials section → disappear after merge ── */
-        if (sectionRef.current === TESTIMONIALS_IDX) {
-          disappearing.current[bi] = true;
-          /* Fade bubble out immediately */
-          opacityRef.current[bi] = 0;
-          /* Fade real icon to full invisible */
-          setTimeout(() => {
-            target.el.style.transition = "opacity 0.35s ease, transform 0.35s ease";
-            target.el.style.opacity    = "0";
-            target.el.style.transform  = "scale(0.65)";
-            mergedRef.current[bi]      = false;
-            scaleRef.current[bi]       = 1;
-            disappearing.current[bi]   = false;
-            takenEls.current.delete(target.el);
-            setTimeout(go, 500);
-          }, 300);
-          return;
-        }
-
-        /* ── Normal LIFT OFF ── */
         setTimeout(() => {
           target.el.style.transition = "opacity 0.2s ease, transform 0.2s ease";
           target.el.style.opacity    = "";
@@ -1607,47 +1611,41 @@ function TravelingIconBubbles() {
 
       requestAnimationFrame(arrive);
     };
-
     go();
   }, [getVisibleIcons]);
 
-  /* ── Section change handler ── */
+  /* ── Section change ── */
   const handleSectionChange = useCallback((idx) => {
-    const cfgKey = SECTION_CONFIG_MAP[Math.min(idx, SECTION_CONFIG_MAP.length - 1)];
+    if (idx === sectionRef.current) return;
     sectionRef.current = idx;
 
-    if (idx === TESTIMONIALS_IDX) {
-      /* Give bubbles the star config so they fly to stars and disappear */
-      const tConfig = [
-        { Icon:Star, bg:"#D4AF37", iconKey:"testi-star", size:44, iconSize:20, radius:"50%" },
-        { Icon:Star, bg:"#D4AF37", iconKey:"testi-star", size:40, iconSize:18, radius:"50%" },
-        { Icon:Star, bg:"#D4AF37", iconKey:"testi-star", size:36, iconSize:16, radius:"50%" },
-      ];
-      iconsRef.current = tConfig;
-      setBubbleIcons(tConfig);
-      takenEls.current.clear();
-      mergedRef.current = [false,false,false];
-      scaleRef.current  = [1,1,1];
-      pausedRef.current = false;
-      return;
-    }
-
-    pausedRef.current = false;
-    const newCfg = SECTION_ICON_CONFIG[cfgKey];
-    iconsRef.current = newCfg;
-    setBubbleIcons(newCfg);
+    const cfgKey = SECTION_CONFIG_MAP[idx]; // null if hero or testimonials
 
     restoreAllIcons();
     takenEls.current.clear();
-    mergedRef.current = [false,false,false];
-    scaleRef.current  = [1,1,1];
+    mergedRef.current = [false, false, false];
+    scaleRef.current  = [1, 1, 1];
 
-    /* Per-bubble opacity: hide null-key bubbles, show others */
-    const wereAllGone = opacityRef.current.every(o => o === 0);
-    opacityRef.current = newCfg.map(cfg => (!cfg || !cfg.iconKey) ? 0 : 1);
+    if (!cfgKey) {
+      // No icons for this section — hide all bubbles
+      iconsRef.current   = [null, null, null];
+      opacityRef.current = [0, 0, 0];
+      setVisible(false);
+      setSectionKey(null);
+      return;
+    }
 
-    /* If returning from disappeared state, reposition to center */
-    if (wereAllGone) {
+    const newCfg = SECTION_ICON_CONFIG[cfgKey];
+    const wasHidden = !visible || sectionKey === null;
+
+    iconsRef.current   = newCfg;
+    opacityRef.current = newCfg.map(cfg => (!cfg?.iconKey ? 0 : 1));
+
+    setVisible(true);
+    setSectionKey(cfgKey);
+
+    if (wasHidden) {
+      // Coming from a hidden section — reset positions to center
       const cx = window.innerWidth  * 0.5;
       const cy = window.innerHeight * 0.5;
       curRef.current.forEach((_, i) => {
@@ -1655,78 +1653,64 @@ function TravelingIconBubbles() {
         tgtRef.current[i] = { x: cx + (i-1)*60, y: cy };
       });
     }
-  }, [restoreAllIcons]);
+  }, [visible, sectionKey, restoreAllIcons]);
 
-  /* ── RAF lerp + opacity loop ── */
+  /* ── Scroll + init ── */
   useEffect(() => {
     const getActiveSectionIdx = () => {
       const anchors = Array.from(document.querySelectorAll("[data-dots-anchor]"));
-      const mid = window.scrollY + window.innerHeight * 0.45;
+      if (!anchors.length) return 0;
+
+      // Shift threshold based on scroll direction:
+      //   scrolling DOWN → use 55% (favour section entering from bottom)
+      //   scrolling UP   → use 35% (favour section entering from top)
+      const threshold = scrollDirRef.current === 1
+        ? window.innerHeight * 0.55
+        : window.innerHeight * 0.35;
+
+      const mid = window.scrollY + threshold;
       let active = 0;
       anchors.forEach((el, i) => { if (mid >= el.offsetTop) active = i; });
       return active;
     };
 
     const onScroll = () => {
-      const idx = getActiveSectionIdx();
-      if (idx === sectionRef.current) return;
-      handleSectionChange(idx);
-      setSectionIdx => {};  // trigger re-render via positions update
-    };
+      const sy = window.scrollY;
+      scrollDirRef.current = sy >= lastScrollY.current ? 1 : -1;
+      lastScrollY.current  = sy;
 
-    const lerp = (a, b, t) => a + (b - a) * t;
-    const loop = () => {
-      const t    = Date.now() / 1000;
-      const next = curRef.current.map((c, i) => {
-        const tg     = tgtRef.current[i];
-        const merged = mergedRef.current[i];
-        const dist   = Math.hypot(c.x - tg.x, c.y - tg.y);
-        /* Adaptive: fast when far, snappy when close, instant when merged */
-        const speed  = merged ? 0.35 : dist > 150 ? 0.28 : dist > 60 ? 0.22 : 0.18;
-        const bobX   = merged ? 0 : Math.cos(t*(0.55+i*0.18)) * 1.5;
-        const bobY   = merged ? 0 : Math.abs(Math.sin(t*(0.82+i*0.22))) * 2.5;
-        const nx = lerp(c.x, tg.x + bobX, speed * 1.5);
-        const ny = lerp(c.y, tg.y + bobY, speed * 1.5);
-        curRef.current[i] = { x:nx, y:ny };
-        return {
-          x:nx, y:ny,
-          scale:   merged ? scaleRef.current[i] : 1,
-          opacity: opacityRef.current[i],
-        };
-      });
-      setPositions(next);
-      rafRef.current = requestAnimationFrame(loop);
+      const idx = getActiveSectionIdx();
+      if (idx !== sectionRef.current) handleSectionChange(idx);
     };
 
     const init = () => {
       const anchors = Array.from(document.querySelectorAll("[data-dots-anchor]"));
       if (!anchors.length) { setTimeout(init, 200); return; }
-      const idx = getActiveSectionIdx();
-      handleSectionChange(idx);
-      setReady(true);
-      rafRef.current = requestAnimationFrame(loop);
-      [0,1,2].forEach(bi => setTimeout(() => runBubble(bi), 900 + bi * TBI_STAGGER_MS));
+      lastScrollY.current = window.scrollY;
+      handleSectionChange(getActiveSectionIdx());
+      readyRef.current = true;
+      [0,1,2].forEach(bi => setTimeout(() => runBubble(bi), 600 + bi * TBI_STAGGER_MS));
     };
-    setTimeout(init, 900);
 
-    window.addEventListener("scroll", onScroll, { passive:true });
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      cancelAnimationFrame(rafRef.current);
-    };
+    setTimeout(init, 600);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, [handleSectionChange, runBubble]);
 
-  if (!ready) return null;
+  if (!visible) return null;
+
+  const cfg = iconsRef.current;
 
   return (
     <>
-      {bubbleIcons.map((cfg, i) => {
-        const { bg, Icon, size, iconSize, radius, iconColor } = cfg;
-        const p   = positions[i];
-        const col = iconColor || "white";
+      {[0,1,2].map(i => {
+        const c = cfg[i];
+        if (!c) return null;
+        const { bg, Icon, size, iconSize, radius, iconColor } = c;
         return (
-          <motion.div
+          <div
             key={`tbi-${i}`}
+            ref={el => { bubbleRefs.current[i] = el; }}
             className="fixed pointer-events-none z-[495] flex items-center justify-center"
             style={{
               width:        size,
@@ -1734,27 +1718,20 @@ function TravelingIconBubbles() {
               borderRadius: radius,
               background:   bg,
               boxShadow:    `0 6px 20px ${bg}66, 0 2px 8px ${bg}44`,
-              left: p.x - size / 2,
-              top:  p.y - size / 2,
-              willChange: "left, top",
-            }}
-            animate={{
-              scale:   p.scale   ?? 1,
-              opacity: p.opacity ?? 1,
-            }}
-            transition={{
-              scale:   { duration: 0.1, ease: "easeOut" },
-              opacity: { duration: 0.4,  ease: "easeInOut" },
+              top:  0,
+              left: 0,
+              willChange:  "transform, opacity",
+              transform:   "translate(-400px, -400px)",
+              transition:  "opacity 0.35s ease",
             }}
           >
-            <Icon style={{ width:iconSize, height:iconSize, color:col, strokeWidth:2 }} />
-          </motion.div>
+            <Icon style={{ width: iconSize, height: iconSize, color: iconColor || "white", strokeWidth: 2 }} />
+          </div>
         );
       })}
     </>
   );
 }
-
 /* ════════════════════════════════════════════════════════════
    HOME ROOT
 ════════════════════════════════════════════════════════════ */
