@@ -24,6 +24,9 @@ import StackenzoPrograms from "./StackenzoPrograms";
 import Portfolio from "./Portfolio";
 import GalleryPage from "./GalleryPage";
 import ScrollToTop from "./ScrollToTop";
+import WorkshopRegister from "./WorkshopRegister";
+import WorkshopSuccess from "./WorkshopSuccess";
+import WorkshopAlreadyRegistered from "./WorkshopAlreadyRegistered";
 
 function App() {
   return (
@@ -51,7 +54,10 @@ function App() {
     <Route path="/Gallerypage" element={<GalleryPage/>}/>
     <Route path="/Terms" element={<Terms/>}/>
     <Route path="/Privacy" element={<Privacy/>}/>
-    <Route path="/admin/resumes" element={<ResumeAdmin/>}/>
+     <Route path="/admin/resumes" element={<ResumeAdmin/>}/>
+     <Route path="/workshop/register" element={<WorkshopRegister/>}/>
+     <Route path="/workshop/success" element={<WorkshopSuccess/>}/>
+     <Route path="/workshop/already-registered" element={<WorkshopAlreadyRegistered/>}/>
    </Routes>
    </>
   );

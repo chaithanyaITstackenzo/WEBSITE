@@ -1,4 +1,5 @@
 const EnrollmentModel = require('../models/enrollmentModel');
+const WorkshopRegistrationModel = require('../models/workshopRegistrationModel');
 const { sendEmail } = require('../utils/emailService');
 
 class EnrollmentController {
@@ -133,6 +134,128 @@ class EnrollmentController {
       res.json({
         success: true,
         data: stats
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ── Workshop Registration ──────────────────────────────────────────────────
+
+  static async workshopRegister(req, res, next) {
+    try {
+      const {
+        name,
+        email,
+        phone,
+        college,
+        stream,
+        year,
+        batch,
+        experience,
+        whatsappOptin,
+        message,
+        workshopId,
+        source
+      } = req.body;
+
+      // Convert experience to 'yes'/'no' if needed
+      const normalizedExperience = experience === true || experience === 'yes' ? 'yes' : 'no';
+
+      // Duplicate check (by email OR phone)
+      const existing = await WorkshopRegistrationModel.findDuplicate(email, phone);
+      if (existing) {
+        return res.status(409).json({
+          success: false,
+          duplicate: true,
+          regId: existing.reg_id,
+          name: existing.name,
+          message: 'You are already registered for this workshop.'
+        });
+      }
+
+      // Create registration
+      const { regId } = await WorkshopRegistrationModel.create({
+        name, email, phone, college, stream, year,
+        batch, normalizedExperience, whatsappOptin,
+        message, workshopId, source
+      });
+
+      // Confirmation email to registrant (non-blocking)
+      sendEmail({
+        to: email,
+        subject: `✅ Workshop Registration Confirmed – ${regId}`,
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+            <div style="background:linear-gradient(135deg,#F04A06,#C5531A);padding:28px 24px;border-radius:12px 12px 0 0;text-align:center;">
+              <h1 style="color:#fff;margin:0;font-size:24px;">🎉 You're Registered!</h1>
+              <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;">Stackenzo Robotics Workshop</p>
+            </div>
+            <div style="background:#f9f9f9;padding:28px 24px;border-radius:0 0 12px 12px;border:1px solid #e5e7eb;">
+              <p style="font-size:16px;color:#444;">Hello <strong>${name}</strong>,</p>
+              <p style="color:#666;">Your spot is confirmed for the <strong>Robotics Workshop</strong>!</p>
+              <div style="background:#FFF4ED;border:1px solid rgba(212,175,55,0.4);border-radius:10px;padding:20px;margin:20px 0;text-align:center;">
+                <p style="font-size:12px;color:#888;margin:0 0 6px;letter-spacing:0.1em;text-transform:uppercase;">Your Registration ID</p>
+                <p style="font-size:26px;font-weight:900;color:#F04A06;margin:0;letter-spacing:0.05em;">${regId}</p>
+              </div>
+              <table style="width:100%;border-collapse:collapse;font-size:14px;color:#555;">
+                <tr><td style="padding:8px;border-bottom:1px solid #eee;font-weight:600;color:#333;">Batch</td><td style="padding:8px;border-bottom:1px solid #eee;">${batch}</td></tr>
+                <tr><td style="padding:8px;border-bottom:1px solid #eee;font-weight:600;color:#333;">College</td><td style="padding:8px;border-bottom:1px solid #eee;">${college || 'N/A'}</td></tr>
+                <tr><td style="padding:8px;font-weight:600;color:#333;">Department</td><td style="padding:8px;">${stream || 'N/A'}</td></tr>
+              </table>
+              <p style="color:#666;margin-top:20px;">Please keep your Registration ID safe. Bring it to the workshop for check-in.</p>
+              <p style="color:#999;font-size:13px;margin-top:24px;text-align:center;">© ${new Date().getFullYear()} Stackenzo. All rights reserved.</p>
+            </div>
+          </div>
+        `
+      }).catch(err => console.error('Workshop confirmation email error:', err));
+
+      // Admin notification (non-blocking)
+      sendEmail({
+        to: process.env.ADMIN_EMAIL || 'admin@stackenzo.com',
+        subject: `📋 New Workshop Registration – ${name} (${regId})`,
+        html: `
+          <h2 style="color:#F04A06;">New Workshop Registration</h2>
+          <table style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px;">
+            <tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:600;">Reg ID</td><td style="padding:8px 12px;border:1px solid #ddd;">${regId}</td></tr>
+            <tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:600;">Name</td><td style="padding:8px 12px;border:1px solid #ddd;">${name}</td></tr>
+            <tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:600;">Email</td><td style="padding:8px 12px;border:1px solid #ddd;">${email}</td></tr>
+            <tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:600;">Phone</td><td style="padding:8px 12px;border:1px solid #ddd;">${phone}</td></tr>
+            <tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:600;">College</td><td style="padding:8px 12px;border:1px solid #ddd;">${college || 'N/A'}</td></tr>
+            <tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:600;">Stream</td><td style="padding:8px 12px;border:1px solid #ddd;">${stream || 'N/A'}</td></tr>
+            <tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:600;">Year</td><td style="padding:8px 12px;border:1px solid #ddd;">${year || 'N/A'}</td></tr>
+            <tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:600;">Batch</td><td style="padding:8px 12px;border:1px solid #ddd;">${batch}</td></tr>
+            <tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:600;">Experience</td><td style="padding:8px 12px;border:1px solid #ddd;">${normalizedExperience}</td></tr>
+            <tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:600;">WhatsApp Opt-in</td><td style="padding:8px 12px;border:1px solid #ddd;">${whatsappOptin ? 'Yes' : 'No'}</td></tr>
+            <tr><td style="padding:8px 12px;border:1px solid #ddd;font-weight:600;">Source</td><td style="padding:8px 12px;border:1px solid #ddd;">${source || 'website'}</td></tr>
+          </table>
+        `
+      }).catch(err => console.error('Workshop admin email error:', err));
+
+      res.status(201).json({
+        success: true,
+        message: 'Registered successfully!',
+        regId
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // ── Workshop Stats ────────────────────────────────────────────────────────
+
+  static async getWorkshopStats(req, res, next) {
+    try {
+      const { workshopId } = req.query;
+      const stats = await WorkshopRegistrationModel.getStats(workshopId);
+      const total = 100;
+      res.json({
+        success: true,
+        data: {
+          registered: stats.count,
+          total,
+          remaining: Math.max(0, total - stats.count)
+        }
       });
     } catch (error) {
       next(error);

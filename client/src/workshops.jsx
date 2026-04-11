@@ -9,9 +9,10 @@ import {
   Sparkles, GraduationCap, Brain, Rocket, TrendingUp, Heart,
   Shield, Coffee, Globe, MessageSquare, Share2, Bookmark, BadgeCheck,
   HelpCircle, Mail, Phone, Send, MessageCircle, FileText, User,
-  School, CalendarDays, ListChecks,ArrowRight,
+  School, CalendarDays, ListChecks, ArrowRight,
 } from "lucide-react";
 import { Toaster, toast } from "react-hot-toast";
+import { Link } from "react-router-dom";
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 import WorkshopRegistrationModal from "./WorkshopRegistrationModal";
@@ -808,6 +809,14 @@ const scrollOpacity = useTransform(scrollY, [0, 100], [1, 0]);
                                 </div>
                               </div>
                               <div className="flex flex-col gap-2">
+                                {workshop.registrationOpen && (
+                                  <Link to={`/workshop/register?workshop=${workshop.id}`}
+                                    className="w-full px-4 py-2.5 sm:py-3 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow-md text-white"
+                                    style={{ background: "linear-gradient(135deg,#16a34a,#15803d)" }}>
+                                    <CheckCircle className="w-4 h-4" />
+                                    Register Free →
+                                  </Link>
+                                )}
                                 <motion.button onClick={() => setSelectedWorkshop(workshop)} whileHover={{ scale: 1.02 }} whileTap={{ scale: .98 }}
                                   className="w-full px-4 py-2.5 sm:py-3 text-white rounded-lg text-sm font-semibold transition-all shadow-sm hover:shadow flex items-center justify-center gap-2 group/btn"
                                   style={{ background: `linear-gradient(135deg,${C.dark},${C.mid})` }}>

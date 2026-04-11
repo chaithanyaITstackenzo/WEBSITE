@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { z } from "zod";
 import { X, BookOpen, User, Mail, Phone, Layers, GraduationCap, MessageSquare, Send, CheckCircle, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
 import toast from "react-hot-toast";
@@ -108,14 +109,58 @@ function Field({ label, icon: Icon, required, children }) {
    MAIN COMPONENT
 ══════════════════════════════════════════════ */
 function WorkshopRegistrationModal({ workshop, onClose }) {
-  const [formData, setFormData] = useState({ name: "", email: "", phone: "", department: "", education: "", message: "" });
+  const [formData, setFormData] = useState({ 
+    name: "", 
+    email: "", 
+    phone: "", 
+    college: "", 
+    stream: "", 
+    year: "", 
+    batch: "", 
+    experience: "", 
+    whatsappOptin: false,
+    message: "" 
+  });
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState(null);
   const [submitStatus, setSubmitStatus] = useState(null);
+  const [errors, setErrors] = useState({});
 
-  const ch = field => e => setFormData(p => ({ ...p, [field]: e.target.value }));
-  const fo = f => () => setFocused(f);
-  const bl = () => setFocused(null);
+  // Zod schema matching backend validation
+  const schema = z.object({
+    name: z.string().min(2, "Full name must be at least 2 characters"),
+    college: z.string().min(2, "College name is required"),
+    batch: z.string().nonempty("Please select a batch"),
+    experience: z.enum(["yes", "no"], "Please select prior experience option"),
+    email: z.string().email("Valid email is required"),
+    phone: z.string().regex(/^[6-9]\d{9}$/, "Enter valid 10-digit Indian mobile number"),
+    stream: z.string().min(1, "Stream is required")
+  });
+
+  // Validate form
+  const validateForm = useCallback(() => {
+    try {
+      schema.parse(formData);
+      setErrors({});
+      return true;
+    } catch (err) {
+      const fieldErrors = {};
+      err.errors.forEach(e => {
+        fieldErrors[e.path[0]] = e.message;
+      });
+      setErrors(fieldErrors);
+      return false;
+    }
+  }, [formData]);
+
+  // Unified change handler for all inputs/selects
+  const handleChange = (field) => (e) => {
+    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleFocus = (field) => () => setFocused(field);
+  const handleBlur = () => setFocused(null);
 
   /* lock body scroll */
   useEffect(() => {
@@ -125,12 +170,29 @@ function WorkshopRegistrationModal({ workshop, onClose }) {
 
   const handleSubmit = async e => {
     e.preventDefault();
+    
+    // Debug: Log form data before submit
+    console.log('📋 Form Data before submit:', formData);
+    
+    if (!validateForm()) {
+      toast.error("Please fill all required fields correctly");
+      console.log('❌ Client validation failed. Errors:', errors);
+      return;
+    }
+    
     setLoading(true); setSubmitStatus(null);
     try {
-      const res = await fetch("http://localhost:5000/api/enrollments", {
+      const submitData = { 
+        ...formData, 
+        workshopId: workshop.id || "robotics-workshop",
+        source: "website-modal"
+      };
+      console.log('📤 Submitting payload:', submitData);
+      
+      const res = await fetch("/api/enrollments/workshop/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, course: workshop.title, type: "workshop" }),
+        body: JSON.stringify(submitData),
       });
       const data = await res.json();
       if (data.success) {
@@ -221,45 +283,81 @@ function WorkshopRegistrationModal({ workshop, onClose }) {
 
                 <Field label="Full Name" icon={User} required>
                   <FocusInput type="text" required value={formData.name}
-                    onChange={ch("name")} onFocus={fo("name")} onBlur={bl}
+                    onChange={handleChange("name")} onFocus={handleFocus("name")} onBlur={handleBlur}
                     focused={focused === "name"} placeholder="Your full name" />
                 </Field>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                   <Field label="Email" icon={Mail} required>
                     <FocusInput type="email" required value={formData.email}
-                      onChange={ch("email")} onFocus={fo("email")} onBlur={bl}
+                      onChange={handleChange("email")} onFocus={handleFocus("email")} onBlur={handleBlur}
                       focused={focused === "email"} placeholder="john@example.com" />
                   </Field>
                   <Field label="Phone" icon={Phone} required>
                     <FocusInput type="tel" required value={formData.phone}
-                      onChange={ch("phone")} onFocus={fo("phone")} onBlur={bl}
+                      onChange={handleChange("phone")} onFocus={handleFocus("phone")} onBlur={handleBlur}
                       focused={focused === "phone"} placeholder="+91 9876543210" />
                   </Field>
                 </div>
 
-                <div className="mt-4">
-                  <Field label="Department / Branch" icon={Layers}>
-                    <FocusInput type="text" value={formData.department}
-                      onChange={ch("department")} onFocus={fo("department")} onBlur={bl}
-                      focused={focused === "department"} placeholder="e.g., CSE, ECE, EEE" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                  <Field label="College Name" icon={GraduationCap} required>
+                    <FocusInput type="text" required value={formData.college}
+                      onChange={handleChange("college")} onFocus={handleFocus("college")} onBlur={handleBlur}
+                      focused={focused === "college"} placeholder="Your college/university name" />
+                  </Field>
+                  <Field label="Department / Stream" icon={Layers} required>
+                    <FocusInput type="text" required value={formData.stream}
+                      onChange={handleChange("stream")} onFocus={handleFocus("stream")} onBlur={handleBlur}
+                      focused={focused === "stream"} placeholder="e.g., CSE, ECE, Mechanical" />
                   </Field>
                 </div>
 
-                <div className="mt-4">
-                  <Field label="Education Level" icon={GraduationCap} required>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                  <Field label="Year of Study" required>
                     <div className="relative">
-                      <select required value={formData.education}
-                        onChange={ch("education")} onFocus={fo("education")} onBlur={bl}
+                      <select 
+                        key="year-select"
+                        required 
+                        value={formData.year || ""}
+                        onChange={handleChange("year")} 
+                        onFocus={handleFocus("year")} 
+                        onBlur={handleBlur}
                         className={inputCls}
-                        style={{ borderColor: focused === "education" ? "#F04A06" : "#e5e7eb", boxShadow: focused === "education" ? "0 0 0 3px rgba(230,107,38,0.12)" : undefined }}>
-                        <option value="">Select level…</option>
-                        <option value="undergraduate">Undergraduate</option>
-                        <option value="graduate">Graduate</option>
-                        <option value="postgraduate">Postgraduate</option>
+                        style={{ borderColor: focused === "year" ? "#F04A06" : "#e5e7eb", boxShadow: focused === "year" ? "0 0 0 3px rgba(230,107,38,0.12)" : undefined }}>
+                        <option value="">Select year…</option>
+                        <option value="1st Year">1st Year</option>
+                        <option value="2nd Year">2nd Year</option>
+                        <option value="3rd Year">3rd Year</option>
+                        <option value="4th Year">4th Year</option>
+                        <option value="Final Year">Final Year</option>
                       </select>
                       <AnimatePresence>
-                        {focused === "education" && (
+                        {focused === "year" && (
+                          <motion.div className="absolute inset-0 rounded-xl pointer-events-none"
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            style={{ boxShadow: "0 0 0 2px rgba(212,175,55,0.4)", borderRadius: 12 }} />
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </Field>
+                  <Field label="Batch Timing" required>
+                    <div className="relative">
+                      <select 
+                        key="batch-select"
+                        required 
+                        value={formData.batch || ""}
+                        onChange={handleChange("batch")} 
+                        onFocus={handleFocus("batch")} 
+                        onBlur={handleBlur}
+                        className={inputCls}
+                        style={{ borderColor: focused === "batch" ? "#F04A06" : "#e5e7eb", boxShadow: focused === "batch" ? "0 0 0 3px rgba(230,107,38,0.12)" : undefined }}>
+                        <option value="">Select batch…</option>
+                        <option value="Morning (9AM-12PM)">Morning (9AM-12PM)</option>
+                        <option value="Evening (6PM-9PM)">Evening (6PM-9PM)</option>
+                      </select>
+                      <AnimatePresence>
+                        {focused === "batch" && (
                           <motion.div className="absolute inset-0 rounded-xl pointer-events-none"
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             style={{ boxShadow: "0 0 0 2px rgba(212,175,55,0.4)", borderRadius: 12 }} />
@@ -269,12 +367,52 @@ function WorkshopRegistrationModal({ workshop, onClose }) {
                   </Field>
                 </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                  <Field label="Prior Experience" required>
+                    <div className="relative">
+                      <select 
+                        key="experience-select"
+                        required 
+                        value={formData.experience || ""}
+                        onChange={handleChange("experience")} 
+                        onFocus={handleFocus("experience")} 
+                        onBlur={handleBlur}
+                        className={inputCls}
+                        style={{ borderColor: focused === "experience" ? "#F04A06" : "#e5e7eb", boxShadow: focused === "experience" ? "0 0 0 3px rgba(230,107,38,0.12)" : undefined }}>
+                        <option value="">Select…</option>
+                        <option value="yes">Yes</option>
+                        <option value="no">No</option>
+                      </select>
+                      <AnimatePresence>
+                        {focused === "experience" && (
+                          <motion.div className="absolute inset-0 rounded-xl pointer-events-none"
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            style={{ boxShadow: "0 0 0 2px rgba(212,175,55,0.4)", borderRadius: 12 }} />
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </Field>
+                  <Field label="WhatsApp Updates?" required={false}>
+                    <label className="flex items-center gap-2.5 p-3 rounded-xl cursor-pointer group hover:bg-[#FFF4ED] transition-colors h-full"
+                      style={{ border: "2px solid #e5e7eb", borderColor: focused === "whatsappOptin" ? "#F04A06" : "#e5e7eb" }}
+                      onFocus={handleFocus("whatsappOptin")} onBlur={handleBlur}>
+                      <input type="checkbox" className="w-4 h-4 rounded text-[#F04A06] focus:ring-[#F04A06]"
+                        checked={formData.whatsappOptin} onChange={handleChange("whatsappOptin")} />
+                      <span className="text-sm leading-5" style={{ color: "#1A1A1A" }}>Send workshop updates via WhatsApp</span>
+                    </label>
+                  </Field>
+                </div>
+
                 <div className="mt-4">
                   <Field label="Message (Optional)" icon={MessageSquare}>
                     <div className="relative">
-                      <textarea value={formData.message}
-                        onChange={ch("message")} onFocus={fo("message")} onBlur={bl}
-                        rows="3" placeholder="Any questions or additional info…"
+                      <textarea 
+                        value={formData.message || ""}
+                        onChange={handleChange("message")} 
+                        onFocus={handleFocus("message")} 
+                        onBlur={handleBlur}
+                        rows="3" 
+                        placeholder="Any questions or additional info…"
                         className={inputCls + " resize-none"}
                         style={{ borderColor: focused === "message" ? "#F04A06" : "#e5e7eb", boxShadow: focused === "message" ? "0 0 0 3px rgba(230,107,38,0.12)" : undefined }} />
                       <AnimatePresence>
@@ -319,26 +457,26 @@ function WorkshopRegistrationModal({ workshop, onClose }) {
                       className="flex-1 py-3 rounded-xl font-black text-sm border border-gray-200 text-[#1A1A1A] hover:border-[#F04A06] hover:text-[#F04A06] transition-all bg-white">
                       Cancel
                     </MagBtn>
-                    <MagBtn type="submit" disabled={loading}
-                      className="flex-1 relative overflow-hidden py-3 rounded-xl font-black text-sm text-black shadow-md hover:shadow-lg disabled:opacity-55 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                      style={{ background: "linear-gradient(135deg,#F04A06,#C5531A)" }}>
-                      <span className="relative z-10 flex items-center gap-2">
-                        {loading ? (
-                          <>
-                            <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: .9, ease: "linear" }}
-                              className="w-4 h-4 border-2 border-black border-t-transparent rounded-full" />
-                            Submitting…
-                          </>
-                        ) : (
-                          <>
-                            <Send className="w-4 h-4" />
-                            Register
-                          </>
-                        )}
-                      </span>
-                      <motion.div className="absolute inset-0 bg-[#C5531A] origin-left"
-                        initial={{ scaleX: 0 }} whileHover={{ scaleX: 1 }} transition={{ duration: .35 }} />
-                    </MagBtn>
+                <MagBtn type="submit" disabled={loading || !validateForm()}
+                  className="flex-1 relative overflow-hidden py-3 rounded-xl font-black text-sm text-black shadow-md hover:shadow-lg disabled:opacity-55 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  style={{ background: "linear-gradient(135deg,#F04A06,#C5531A)" }}>
+                  <span className="relative z-10 flex items-center gap-2">
+                    {loading ? (
+                      <>
+                        <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: .9, ease: "linear" }}
+                          className="w-4 h-4 border-2 border-black border-t-transparent rounded-full" />
+                        Submitting…
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        Register
+                      </>
+                    )}
+                  </span>
+                  <motion.div className="absolute inset-0 bg-[#C5531A] origin-left"
+                    initial={{ scaleX: 0 }} whileHover={{ scaleX: 1 }} transition={{ duration: .35 }} />
+                </MagBtn>
                   </div>
                 </SI>
 

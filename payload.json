@@ -1,0 +1,14 @@
+{
+  "name": "Sujith Konduru",
+  "email": "kondurusujith2203@gmail.com",
+  "phone": "6281704660",
+  "college": "VIT University",
+  "stream": "Computer Science",
+  "year": "3rd Year",
+  "batch": "Morning (9AM-12PM)",
+  "experience": "no",
+  "whatsappOptin": true,
+  "message": "Interested in robotics workshop",
+  "workshopId": "robotics-workshop",
+  "source": "api-test"
+}

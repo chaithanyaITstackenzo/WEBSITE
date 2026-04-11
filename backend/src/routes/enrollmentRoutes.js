@@ -1,7 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const EnrollmentController = require('../controllers/enrollmentController');
-const { validateEnrollment } = require('../middleware/validation');
+const { validateEnrollment, validateWorkshopRegistration } = require('../middleware/validation');
+
+// ── Workshop routes (must be before /:id to avoid conflicts) ──────────────
+router.post('/workshop/register', validateWorkshopRegistration, EnrollmentController.workshopRegister);
+router.get('/workshop/stats', EnrollmentController.getWorkshopStats);
 
 // Public routes
 router.post('/', validateEnrollment, EnrollmentController.submitEnrollment);

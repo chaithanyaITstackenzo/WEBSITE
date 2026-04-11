@@ -522,6 +522,38 @@ const initDatabase = async () => {
 
     console.log('✅ School Partnerships table ready');
 
+    // Workshop Registrations table
+    await createOrUpdateTable(client, 'workshop_registrations', `
+      CREATE TABLE IF NOT EXISTS workshop_registrations (
+        id SERIAL PRIMARY KEY,
+        reg_id VARCHAR(30) UNIQUE,
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        phone VARCHAR(30),
+        college VARCHAR(255),
+        stream VARCHAR(100),
+        year VARCHAR(50),
+        batch VARCHAR(100),
+        experience VARCHAR(255),
+        whatsapp_optin BOOLEAN DEFAULT false,
+        message TEXT,
+        workshop_id VARCHAR(100) DEFAULT 'robotics',
+        source VARCHAR(100) DEFAULT 'website',
+        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'attended', 'cancelled')),
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    await createIndexIfNotExists(client, 'idx_workshop_reg_email', 'workshop_registrations', '(email)');
+    await createIndexIfNotExists(client, 'idx_workshop_reg_phone', 'workshop_registrations', '(phone)');
+    await createIndexIfNotExists(client, 'idx_workshop_reg_id', 'workshop_registrations', '(reg_id)');
+    await createIndexIfNotExists(client, 'idx_workshop_reg_workshop_id', 'workshop_registrations', '(workshop_id)');
+    await createIndexIfNotExists(client, 'idx_workshop_reg_created', 'workshop_registrations', '(created_at)');
+    await createOrReplaceTrigger(client, 'update_workshop_registrations_updated', 'workshop_registrations', 'update_updated_at_column');
+
+    console.log('✅ Workshop registrations table ready');
+
     console.log('🎉 Database initialization completed successfully!');
 
   } catch (error) {

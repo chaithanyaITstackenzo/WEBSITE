@@ -717,7 +717,7 @@ const scrollOpacity = useTransform(scrollY, [0, 100], [1, 0]);
       {/* Ticker */}
       {!loading && apiPrograms.length > 0 && (
         <div className="absolute top-16 left-0 right-0 z-10 overflow-hidden border-y border-black/[.055] bg-white/70 backdrop-blur-md py-2.5">
-          <motion.div className="flex gap-14 whitespace-nowrap" animate={{ x: ["0%", "-50%"] }} transition={{ repeat: Infinity, duration: 44, ease: "linear" }}>
+          {/* <motion.div className="flex gap-14 whitespace-nowrap" animate={{ x: ["0%", "-50%"] }} transition={{ repeat: Infinity, duration: 44, ease: "linear" }}>
             {[...apiPrograms.slice(0,6), ...apiPrograms.slice(0,6)].map((p,i) => (
               <Link key={i} to={`/Programs/${p.id}`} className="flex items-center gap-3 text-sm text-[#1A1A1A] hover:text-[#F04A06] transition-colors group">
                 <span className="relative flex h-2 w-2">
@@ -729,7 +729,7 @@ const scrollOpacity = useTransform(scrollY, [0, 100], [1, 0]);
                 <span className="text-xs text-gray-400">{new Date(p.date).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</span>
               </Link>
             ))}
-          </motion.div>
+          </motion.div> */}
         </div>
       )}
 

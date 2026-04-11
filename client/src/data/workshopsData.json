@@ -13,7 +13,8 @@
         "Real-time applications",
         "Hands-on embedded projects"
       ],
-      "outcomes": ["Understand embedded architecture", "Interface sensors and actuators", "Build real-time applications"]
+      "outcomes": ["Understand embedded architecture", "Interface sensors and actuators", "Build real-time applications"],
+      "registrationOpen": false
     },
     {
       "id": "iot",
@@ -28,7 +29,8 @@
         "Smart applications (home, industry, healthcare)",
         "Live IoT project implementation"
       ],
-      "outcomes": ["Build IoT systems", "Implement cloud connectivity", "Create smart applications"]
+      "outcomes": ["Build IoT systems", "Implement cloud connectivity", "Create smart applications"],
+      "registrationOpen": false
     },
     {
       "id": "robotics",
@@ -43,9 +45,30 @@
         "Line follower / obstacle avoidance concepts",
         "Hands-on robot building sessions"
       ],
-      "outcomes": ["Build functional robots", "Implement control systems", "Design autonomous robots"]
+      "outcomes": ["Build functional robots", "Implement control systems", "Design autonomous robots"],
+      "registrationOpen": true,
+      "seats": 100
     }
   ],
+  "featuredWorkshop": {
+    "workshopId": "robotics",
+    "title": "Robotics Workshop",
+    "subtitle": "Hands-on Robot Building & Control Systems",
+    "college": "Sri Venkateshwara College of Engineering",
+    "dateISO": "2026-04-20",
+    "dateDisplay": "April 20–21, 2026",
+    "duration": "2 Days",
+    "location": "Sri Venkateshwara College of Engineering, Tirupati, AP",
+    "seats": 100,
+    "batches": [
+      { "id": "batch-a", "label": "Batch A – Morning (9:00 AM – 1:00 PM)" },
+      { "id": "batch-b", "label": "Batch B – Afternoon (2:00 PM – 6:00 PM)" }
+    ],
+    "whatsappGroupLink": "https://wa.me/919000000000",
+    "fee": "Free of Cost",
+    "calendarTitle": "Robotics Workshop – Stackenzo @ SVCE",
+    "calendarLocation": "Sri Venkateshwara College of Engineering, Tirupati, AP"
+  },
   "trendingTechnologies": [
     "Industry 4.0",
     "Automation & Smart Manufacturing",
