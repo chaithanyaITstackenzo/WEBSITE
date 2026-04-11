@@ -191,7 +191,7 @@ function Footer() {
               <div className="relative bg-white rounded-2xl overflow-hidden border border-gray-200 shadow-2xl">
                 <div className="aspect-[21/9] w-full">
                   <iframe
-                    src="https://www.google.com/maps/embed?pb=!1m17!1m12!1m3!1d1462.208654815225!2d79.94902621077726!3d14.40748826002402!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m2!1m1!2zMTTCsDI0JzI2LjkiTiA3OcKwNTYnNTcuMCJF!5e1!3m2!1sen!2sin!4v1775304227880!5m2!1sen!2sin"
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d1069.330120948716!2d79.94909352899882!3d14.407544339785618!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a4cf2f1c9c41ba7%3A0x821a70db911ac1ce!2sCW4X%2BVWQ%2C%20Venkata%20Reddy%20Nagar%2C%20Nellore%2C%20Andhra%20Pradesh%20524004!5e1!3m2!1sen!2sin!4v1775909612396!5m2!1sen!2sin"
                     width="100%"
                     height="100%"
                     style={{ border: 0 }}
