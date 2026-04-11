@@ -165,7 +165,7 @@ export default function WorkshopRegister() {
             <div className="flex flex-wrap gap-2 mb-4">
               <span className="px-3 py-1 rounded-full text-xs font-bold"
                 style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "1px solid rgba(255,255,255,0.25)" }}>
-                ☀️ Summer Camp 2026
+                Summer Camp 2026
               </span>
               <span className="px-3 py-1 rounded-full text-xs font-bold"
                 style={{ background: "rgba(212,175,55,0.25)", color: C.gold, border: `1px solid ${C.gold}55` }}>
